@@ -1,28 +1,29 @@
 package com.ttracker.service;
 
-import com.ttracker.dto.StopsDto;
-import com.ttracker.dto.TimingDto;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.core.io.DefaultResourceLoader;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
-
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import org.mockito.Mock;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import com.ttracker.dto.StopsDto;
+import com.ttracker.dto.TimingDto;
+
+import reactor.core.publisher.Mono;
 
 @ExtendWith(MockitoExtension.class)
 class TrackerServiceTest {
@@ -46,10 +47,13 @@ class TrackerServiceTest {
 
     private TrackerService trackerService;
 
+    private final GtfsStaticDataCacheService cacheService = new GtfsStaticDataCacheService();
+
+
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() throws Exception {
-        trackerService = new TrackerService();
+        trackerService = new TrackerService(cacheService);
         inject("resourceLoader", new DefaultResourceLoader());
         inject("webClient", webClient);
         inject("scheduledTripsService", scheduledTripsService);

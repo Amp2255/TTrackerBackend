@@ -30,6 +30,14 @@ import com.ttracker.dto.TimingDto;
 @Service
 public class TrackerService {
 
+    private final GtfsStaticDataCacheService cacheService;
+
+    public TrackerService(GtfsStaticDataCacheService cacheService) {
+        this.cacheService = cacheService;
+    }
+
+    
+    
     @Autowired
     private ResourceLoader resourceLoader;
 
@@ -39,18 +47,20 @@ public class TrackerService {
     @Autowired
     private ScheduledTripsService scheduledTripsService;
 
+    //try catch removed. exception check added. file load on app startup
     public List<StopsDto> getStopsByName(String name) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Stop name must not be empty");
         }
-        Resource resource = resourceLoader.getResource("classpath:stops.txt");
-
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(resource.getInputStream()))) {
-            List<StopsDto> stops = reader.lines()
-                .filter(line -> line.toLowerCase().contains(name.toLowerCase()))
-                .map(line -> {
-                    String[] parts = line.split(",",3);
+            String normalizedName = name.trim();
+            Map<String, String[]> stopsMap = cacheService.getStopsById();
+            return stopsMap.values()
+                .stream()
+                .filter(parts-> 
+                    parts.length > 1 &&
+                    parts[1] != null && //checks for null pointer exception
+                    parts[1].toLowerCase().contains(normalizedName))
+                .map(parts -> {
                     String id = parts[0].trim();
                     String stopName = parts[1].trim();
                     String address ="";
@@ -61,11 +71,7 @@ public class TrackerService {
                     return new StopsDto(id, stopName, address);
                 })
                 .collect(Collectors.toList());
-
-            return stops;
-        } catch (IOException ex) {
-            throw new RuntimeException("Failed to read stops data", ex);
-        }
+        
     }
 
 public List<TimingDto> getTimings(String stopId) throws IOException {
@@ -153,18 +159,12 @@ private Set<String> getSiblingStopIds(String stopId) {
 }
 
 public String getStopName(String stopId) {
-    Resource resource = resourceLoader.getResource("classpath:stops.txt");
-    try (BufferedReader reader = new BufferedReader(new InputStreamReader(resource.getInputStream()))) {
-        return reader.lines()
-            .skip(1)
-            .map(line -> line.split(",", 3))
-            .filter(parts -> parts.length >= 2 && parts[0].trim().equals(stopId))
-            .map(parts -> parts[1].trim())
-            .findFirst()
-            .orElse(stopId);
-    } catch (IOException ex) {
-        throw new RuntimeException("Failed to read stops.txt", ex);
+    Map<String, String[]> stopMap = cacheService.getStopsById();
+    String [] stopsForGivenStopIdString =stopMap.get(stopId);
+    if(stopsForGivenStopIdString == null ||stopsForGivenStopIdString.length<2){
+        return stopId;
     }
+    return stopsForGivenStopIdString[1].trim();
 }
 
 public List<RouteDto> getRouteIdFromTripId(String tripId) throws IOException {
@@ -172,7 +172,7 @@ public List<RouteDto> getRouteIdFromTripId(String tripId) throws IOException {
             Resource resource = resourceLoader.getResource("classpath:trips.txt");
             try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(resource.getInputStream()))) {
-            List<RouteDto> routes = reader.lines()
+            return reader.lines()
                 .filter(line -> line.split(",").length > 3 && line.split(",")[2].trim().equalsIgnoreCase(tripId))
                 .map(line -> {
                     String[] parts = line.split(",");
@@ -183,34 +183,90 @@ public List<RouteDto> getRouteIdFromTripId(String tripId) throws IOException {
                 })
                 .collect(Collectors.toList());
             //System.out.println("getRouteIdFromTripId result count for tripId " + tripId + ": " + routes.size());
-            return routes;
 
             } catch (IOException ex) {
                 throw new RuntimeException("Failed to read routes data", ex);
             }
 }
-    public List getLineFromRoute(String routeId){
+    public Map<String, String> getLineFromRoute(String routeId){
         //System.out.println("getLineFromRoute called with routeId: " + routeId);
-        Resource resource = resourceLoader.getResource("classpath:routes.txt");
-            try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(resource.getInputStream()))) {
-                    Map<String, String> routeToLine = new HashMap<>();
-                    List<Map<String, String>> lineList = new ArrayList<>();
-            reader.lines()
-                .filter(line -> line.split(",")[0].trim().equalsIgnoreCase(routeId))
-                .forEach(line -> {
-                    String[] parts = line.split(",",2);
-                    String routeIdString = parts[0].trim();
-                    //System.out.println("Route Id: " + routeId + " Route Short Name: " + routeIdString);
-                    routeToLine.put(routeId, routeIdString);
-                    lineList.add(new HashMap<>(routeToLine));
-                });
-                //System.out.println("getLineFromRoute result count for routeId " + routeId + ": " + lineList.size());
-                return lineList;
-
-            } catch (IOException ex) {
-                throw new RuntimeException("Failed to read routes data", ex);
-            }
+        List <String> routeLines =cacheService.getRouteShortNames();
+        return routeLines.stream()
+        .map(line -> line.split(",", -1)) // split ALL columns
+        .filter(parts -> parts[0].trim().equalsIgnoreCase(routeId))
+        .findFirst()
+        .map(parts -> {
+            Map<String, String> map = new HashMap<>();
+            map.put("route_id", parts[0].trim());
+            map.put("route_short_name", parts[2].trim());
+            map.put("route_long_name", parts[3].trim());
+            map.put("route_desc", parts[4].trim());
+            map.put("route_type", getRouteTypeLabel(parts[5].trim())); //bus/tram/metro etc
+            map.put("route_color", parts[7].trim());
+            map.put("route_text_color", parts[8].trim());
+            return map;
+        })
+        .orElse(Map.of());
     }
 
+    public List<RouteDto> getLinesBetweenStops(String stopIdA, String stopIdB) {
+        Set<String> stopAIds = getSiblingStopIds(stopIdA);
+        Set<String> stopBIds = getSiblingStopIds(stopIdB);
+
+        Map<String, List<String[]>> stopTimesByStopId = cacheService.getStopTimesByStopId();
+        System.out.println("Has times for A? " + stopTimesByStopId.containsKey(stopAIds));
+        System.out.println("Has times for B? " + stopTimesByStopId.containsKey(stopBIds));
+        
+        System.out.println("TrackerService.getlinesBetweenTwoStops() : stopTimes " + stopTimesByStopId.toString().substring(0, 10));
+        
+
+        // tripId → stop_sequence
+        Map<String, Integer> seqA = stopAIds.stream()
+                .filter(stopTimesByStopId::containsKey)
+                .flatMap(id -> stopTimesByStopId.get(id).stream())
+                .collect(Collectors.toMap(arr -> arr[1], arr -> Integer.parseInt(arr[4]), Math::min));
+
+        Map<String, Integer> seqB = stopBIds.stream()
+                .filter(stopTimesByStopId::containsKey)
+                .flatMap(id -> stopTimesByStopId.get(id).stream())
+                .collect(Collectors.toMap(arr -> arr[1], arr -> Integer.parseInt(arr[4]), Math::min));
+
+        System.out.println("Trips at A: " + seqA.keySet());
+        System.out.println("Trips at B: " + seqB.keySet());
+
+        // trips that contain both stops AND A comes before B
+        List<String> validTrips = seqA.entrySet().stream()
+                .filter(e -> seqB.containsKey(e.getKey()))
+                .filter(e -> e.getValue() < seqB.get(e.getKey()))
+                .map(Map.Entry::getKey)
+                .toList();
+        System.out.println("TrackerService.getlinesBetweenTwoStops() : validTrips " + validTrips.toString());
+
+        // convert tripId → routeId → RouteDto
+        return validTrips.stream()
+                .flatMap(tripId -> {
+                    String[] tripParts = cacheService.getTripsById().get(tripId);
+                    if (tripParts == null) return null;
+                    String routeId = tripParts[0].trim();
+                    String headsign = tripParts[3].trim();
+                    return List.of(new RouteDto(tripId, routeId, headsign)).stream();
+                })
+                .distinct()
+                .toList();
+    }
+
+    public String getRouteTypeLabel(String routeType) {
+    return switch (routeType) {
+        case "0" -> "Tram";
+        case "1" -> "Metro";
+        case "2" -> "Rail";
+        case "3" -> "Bus";
+        case "4" -> "Ferry";
+        case "5" -> "Cable Car";
+        case "6" -> "Gondola";
+        case "7" -> "Funicular";
+        default -> "Unknown";
+    };
 }
+
+}   
