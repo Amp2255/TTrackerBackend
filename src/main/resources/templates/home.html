@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>TTracker – Search Stop</title>
+    <style>
+        body { font-family: sans-serif; margin: 2rem; }
+        #results div { padding: 8px; cursor: pointer; border-bottom: 1px solid #eee; }
+        #results div:hover { background: #f0f0f0; }
+        input { padding: 8px; width: 260px; }
+    </style>
+</head>
+<body>
+
+<h2>Search Stop</h2>
+
+<input type="text" id="searchBox" placeholder="Type stop name...">
+<div id="results" style="border:1px solid #ccc; width:260px; display:none;"></div>
+
+<script>
+    const searchBox = document.getElementById("searchBox");
+    const results = document.getElementById("results");
+
+    searchBox.addEventListener("input", async () => {
+        const q = searchBox.value.trim();
+        if (q.length < 2) {
+            results.style.display = "none";
+            return;
+        }
+
+        const res = await fetch(`/api/stops?name=${q}`);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        results.innerHTML = "";
+        results.style.display = "block";
+
+        data.forEach(stop => {
+            const div = document.createElement("div");
+            div.textContent = `${stop.name} (${stop.id})`;
+            div.onclick = () => {
+                console.log("stop " + stop)
+                window.location.href = `/stop?stopId=${stop.id}&stopName=${encodeURIComponent(stop.name)}`;
+            };
+            results.appendChild(div);
+        });
+    });
+</script>
+
+</body>
+</html>

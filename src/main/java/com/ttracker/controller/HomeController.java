@@ -6,19 +6,23 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.ttracker.dto.ArrivalDto;
 import com.ttracker.dto.RouteDto;
 import com.ttracker.dto.StopsDto;
 import com.ttracker.dto.TimingDto;
 import com.ttracker.service.TrackerService;
+import org.springframework.ui.Model;
+
+
 
 @CrossOrigin(origins = "*")
-@RestController
+@Controller
 public class HomeController {
 
     private final TrackerService trackerService;
@@ -28,8 +32,43 @@ public class HomeController {
     }
 
     @GetMapping("/")
-    public String home() {
-        return "Welcome to TTracker!";
+    public String homePage() {
+        return "home"; // home.html
+    }
+
+
+    // Thymeleaf UI endpoint
+    @GetMapping("/stop")
+    public String stopView(@RequestParam String stopId, String stopNameForHtml, Model model) throws IOException {
+        
+    List<TimingDto> timingDtosList = trackerService.getTimings(stopId);
+    List<ArrivalDto> arrivals = new ArrayList<>();
+
+    for (TimingDto timing : timingDtosList) {
+        String stopName = trackerService.getStopName(timing.getStopId());
+        List<RouteDto> routeDtoList = trackerService.getRouteIdFromTripId(timing.getTripId());
+
+        for (RouteDto route : routeDtoList) {
+            Map<String, String> lineMap = trackerService.getLineFromRoute(route.getRouteId());
+            Map<String, String> lineInfo = lineMap.isEmpty() ? Map.of() : lineMap;
+
+            arrivals.add(new ArrivalDto(
+                    timing.getStopId(),
+                    stopName,
+                    timing.getTripId(),
+                    route.getTripHeadsign(),
+                    timing.getMinutesUntil(),
+                    route.getRouteId(),
+                    lineInfo
+            ));
+        }
+    }
+
+    model.addAttribute("stopId", stopId);
+    model.addAttribute("stopName",stopNameForHtml);
+    model.addAttribute("arrivals", arrivals);
+
+    return "stop";
     }
 
     @GetMapping("/stops")

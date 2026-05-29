@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Bus Timings</title>
+    <style>
+        body { font-family: sans-serif; margin: 1rem; }
+        table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+        th, td { border: 1px solid #ddd; padding: 0.5rem; }
+        th { background: #f3f3f3; }
+        #results div { padding: 6px; cursor: pointer; border-bottom: 1px solid #eee; }
+        #results div:hover { background: #f0f0f0; }
+    </style>
+</head>
+<body>
+
+<h2>Search Stop</h2>
+
+<input type="text" id="searchBox" placeholder="Type stop name..." style="width: 250px; padding: 6px;">
+<div id="results" style="border:1px solid #ccc; width:250px; display:none;"></div>
+
+<script>
+    const searchBox = document.getElementById("searchBox");
+    const results = document.getElementById("results");
+
+    searchBox.addEventListener("input", async () => {
+        const q = searchBox.value.trim();
+        if (q.length < 2) {
+            results.style.display = "none";
+            return;
+        }
+
+        const res = await fetch(`/api/stops?name=${q}`);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        results.innerHTML = "";
+        results.style.display = "block";
+
+        data.forEach(stop => {
+            const div = document.createElement("div");
+            div.textContent = `${stop.name} (${stop.id})`;
+            div.onclick = () => {
+                window.location.href = `/stop?stopId=${stop.id}`;
+            };
+            results.appendChild(div);
+        });
+    });
+</script>
+
+<hr>
+
+<h2 th:text="'Stop: ' + ${stopId} + ' ' + ${stopName}"></h2>
+
+<table>
+    <thead>
+    <tr>
+        <th>Line</th>
+        <th>Towards</th>
+        <th>Type</th>
+        <th>In (min)</th>
+    </tr>
+    </thead>
+
+    <tbody id="arrivals-body">
+    <tr th:each="a : ${arrivals}">
+        <td th:text="${a.lineId}"></td>
+        <td th:text="${a.towards}"></td>
+        <td th:text="${a.lineDetails['route_type']}"></td>
+        <td th:text="${a.arrivalInMinutes}"></td>
+    </tr>
+    </tbody>
+</table>
+
+<script>
+    const stopId = /*[[${stopId}]]*/ '';
+    const stopName = /*[[${stopName}]]*/ '';
+    let timer = null;
+
+    function getRefreshInterval(min) {
+        console.log(" auto refresh done at :",new Date())
+        if (min == null) return 30000;
+        if (min > 10) return 30000;
+        if (min > 5) return 20000;
+        if (min > 2) return 10000;
+        return 5000;
+    }
+
+    async function refresh() {
+        const res = await fetch(`/api/lines?stopId=${id}`);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const tbody = document.getElementById('arrivals-body');
+        tbody.innerHTML = '';
+
+        data.forEach(a => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${a.lineId ?? ''}</td>
+                <td>${a.towards ?? ''}</td>
+                <td>${a.lineDetails?.route_type_label ?? ''}</td>
+                <td>${a.arrivalInMinutes ?? '-'}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        console.log("data[0].arrivalInMinutes  :::" ,data[0].arrivalInMinutes)
+        const next = data.length ? data[0].arrivalInMinutes : 15;
+        const interval = getRefreshInterval(next);
+
+        clearTimeout(timer);
+        timer = setTimeout(refresh, interval);
+    }
+
+    refresh();
+</script>
+
+</body>
+</html>

@@ -6,6 +6,7 @@ com/ttracker/controller/HomeController.class
 com/ttracker/service/TrackerService.class
 com/ttracker/controller/GlobalExceptionHandler.class
 com/ttracker/config/WebClientConfig.class
+com/ttracker/controller/ApiController.class
 com/ttracker/service/GtfsStaticDataCacheService.class
 com/ttracker/dto/TimingDto.class
 com/ttracker/TTrackerApplication.class
