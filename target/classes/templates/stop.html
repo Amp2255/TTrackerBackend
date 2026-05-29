@@ -8,49 +8,16 @@
         table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
         th, td { border: 1px solid #ddd; padding: 0.5rem; }
         th { background: #f3f3f3; }
-        #results div { padding: 6px; cursor: pointer; border-bottom: 1px solid #eee; }
-        #results div:hover { background: #f0f0f0; }
+        button { padding: 8px 14px; margin-bottom: 1rem; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<h2>Search Stop</h2>
+<!-- Back button -->
+<button onclick="window.location.href='/'">← Back</button>
 
-<input type="text" id="searchBox" placeholder="Type stop name..." style="width: 250px; padding: 6px;">
-<div id="results" style="border:1px solid #ccc; width:250px; display:none;"></div>
-
-<script>
-    const searchBox = document.getElementById("searchBox");
-    const results = document.getElementById("results");
-
-    searchBox.addEventListener("input", async () => {
-        const q = searchBox.value.trim();
-        if (q.length < 2) {
-            results.style.display = "none";
-            return;
-        }
-
-        const res = await fetch(`/api/stops?name=${q}`);
-        if (!res.ok) return;
-
-        const data = await res.json();
-        results.innerHTML = "";
-        results.style.display = "block";
-
-        data.forEach(stop => {
-            const div = document.createElement("div");
-            div.textContent = `${stop.name} (${stop.id})`;
-            div.onclick = () => {
-                window.location.href = `/stop?stopId=${stop.id}`;
-            };
-            results.appendChild(div);
-        });
-    });
-</script>
-
-<hr>
-
-<h2 th:text="'Stop: ' + ${stopId} + ' ' + ${stopName}"></h2>
+<!-- Stop title -->
+<h2 th:text="'Stop: ' + ${stopName}"></h2>
 
 <table>
     <thead>
@@ -74,11 +41,9 @@
 
 <script>
     const stopId = /*[[${stopId}]]*/ '';
-    const stopName = /*[[${stopName}]]*/ '';
     let timer = null;
 
     function getRefreshInterval(min) {
-        console.log(" auto refresh done at :",new Date())
         if (min == null) return 30000;
         if (min > 10) return 30000;
         if (min > 5) return 20000;
@@ -87,7 +52,7 @@
     }
 
     async function refresh() {
-        const res = await fetch(`/api/lines?stopId=${id}`);
+        const res = await fetch(`/api/lines?stopId=${stopId}`);
         if (!res.ok) return;
 
         const data = await res.json();
@@ -104,7 +69,7 @@
             `;
             tbody.appendChild(tr);
         });
-        console.log("data[0].arrivalInMinutes  :::" ,data[0].arrivalInMinutes)
+
         const next = data.length ? data[0].arrivalInMinutes : 15;
         const interval = getRefreshInterval(next);
 
