@@ -27,11 +27,19 @@
     </thead>
 
     <tbody>
-    <tr th:each="a : ${lines}">
-        <td th:text="${a.lineId}"></td>
-        <td th:text="${a.towards}"></td>
-        <td th:text="${a.lineDetails['route_type']}"></td>
-    </tr>
+    <tr th:each="l : ${lines}"
+    th:attr="onclick=|window.location.href='/routeTimePage?stopId=${stopIdA}&routeId=${l.lineId}&towards=${l.towards}'|"
+    style="cursor:pointer;">
+    
+    <td th:text="${l.lineId}"></td>
+    <td th:text="${l.towards}"></td>
+    <td th:text="${l.lineDetails['route_type']}"></td>
+</tr>
+
+
+
+
+    
     </tbody>
 </table>
 

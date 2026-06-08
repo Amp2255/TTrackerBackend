@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class RouteDto {
 
-    private String tripId;
+   // private String tripId;
     private String routeId;
     private String tripHeadsign;
 }

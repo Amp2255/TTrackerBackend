@@ -70,7 +70,7 @@
             data.forEach(stop => {
                 const div = document.createElement("div");
                 div.className = "autocomplete-item";
-                div.textContent = `${stop.name}`;
+                div.textContent = `${stop.name} (${stop.id})`;
                 div.onclick = () => {
                     input.value = stop.name;
                     results.style.display = "none";

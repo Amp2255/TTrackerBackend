@@ -124,31 +124,39 @@ public class HomeController {
 
         model.addAttribute("stopAName", trackerService.getStopName(stopIdA));
         model.addAttribute("stopBName", trackerService.getStopName(stopIdB));
+        model.addAttribute("stopIdA", stopIdA);
         model.addAttribute("lines", results);
 
         return "lines-between";
     }
 
 
-    @GetMapping("/routeTime")
-    public ResponseEntity<List<ArrivalDto>> getRouteTimings(@RequestParam String stopId, String routeId, String routeTowards) throws IOException {
-        if (stopId.isBlank() || routeId.isBlank() ) return ResponseEntity.badRequest().body(null);
+    @GetMapping("/routeTimePage")
+    public String routeTime(
+        @RequestParam String stopId,
+        @RequestParam String routeId,
+        @RequestParam String towards,
+        Model model) throws IOException {
+
         List<TimingDto> timingDtosList = trackerService.getTimings(stopId);
-        if (timingDtosList.isEmpty()) return ResponseEntity.notFound().build();
         List<ArrivalDto> results = new ArrayList<>();
         for (TimingDto timing : timingDtosList) {
             String stopName = trackerService.getStopName(timing.getStopId());
             List<RouteDto> routeDtoList = trackerService.getRouteIdFromTripId(timing.getTripId());
 
             for (RouteDto route : routeDtoList) {
-                if(route.getRouteId().equals(routeId))
+                if(!route.getRouteId().equals(routeId))
                     continue;
                 Map<String, String> lineMap = trackerService.getLineFromRoute(route.getRouteId());
                 Map<String, String> lineInfo = lineMap.isEmpty() ? Map.of() : lineMap;
                 results.add(new ArrivalDto(timing.getStopId(), stopName, timing.getTripId(), route.getTripHeadsign(), timing.getMinutesUntil(), route.getRouteId(), lineInfo));
             }
         }
-        if (results.isEmpty()) return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(results);
+        model.addAttribute("timings", results);
+        model.addAttribute("routeId", routeId);
+        model.addAttribute("towards", towards);
+
+        return "route-time"; // route_time.html
     }
+
 }

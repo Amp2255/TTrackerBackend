@@ -66,7 +66,7 @@ public class ApiController {
 
     // Api to provide all the lines between two stations 
     @GetMapping("/linesBetweenTwoStops")
-    public ResponseEntity<List<ArrivalDto>> getPossibleLinesBetweenStops(@RequestParam String stopIdA,String stopIdB) throws IOException {
+    public ResponseEntity<List<ArrivalDto>> getPossibleLinesBetweenStops(@RequestParam String stopIdA,@RequestParam String stopIdB) throws IOException {
         if (stopIdA.isBlank() || stopIdB.isBlank()) return ResponseEntity.badRequest().body(null);
         List<RouteDto> routeDtosList = trackerService.getLinesBetweenStops(stopIdA,stopIdB);
         

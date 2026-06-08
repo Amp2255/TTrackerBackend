@@ -83,7 +83,7 @@ public List<TimingDto> getTimings(String stopId) throws IOException {
     // Step 1: static schedule for all sibling stops as base
     Map<String, TimingDto> mergedByTripId = new LinkedHashMap<>();
     for (String sid : allStopIds) {
-        System.out.println("all stop ids ::::"+ sid);
+     //   System.out.println("all stop ids ::::"+ sid);
         for (TimingDto t : scheduledTripsService.getScheduledTimings(sid)) {
             mergedByTripId.put(t.getTripId(), t);
         }
@@ -180,7 +180,7 @@ public List<RouteDto> getRouteIdFromTripId(String tripId) throws IOException {
                     String routeIdString = parts[0].trim();
                     String tripHeadsign = parts[3].trim();
                     //System.out.println("Trip Id: " + tripId + " Route Id: " + routeIdString + " Headsign: " + tripHeadsign);
-                    return new RouteDto(tripId, routeIdString, tripHeadsign);
+                    return new RouteDto(routeIdString, tripHeadsign);
                 })
                 .collect(Collectors.toList());
             //System.out.println("getRouteIdFromTripId result count for tripId " + tripId + ": " + routes.size());
@@ -218,24 +218,30 @@ public List<RouteDto> getRouteIdFromTripId(String tripId) throws IOException {
         boolean hasA = stopAIds.stream().anyMatch(stopTimesByStopId::containsKey);
         boolean hasB = stopBIds.stream().anyMatch(stopTimesByStopId::containsKey);
 
-        System.out.println("Has ANY times for A siblings? " + hasA);
-        System.out.println("Has ANY times for B siblings? " + hasB);
+        // System.out.println("Has ANY times for A siblings? " + hasA);
+        // System.out.println("Has ANY times for B siblings? " + hasB);
 
         
-        System.out.println("TrackerService.getlinesBetweenTwoStops() : stopTimes " + stopTimesByStopId.toString().substring(0, 50));
+        // System.out.println("TrackerService.getlinesBetweenTwoStops() : stopTimes " + stopTimesByStopId.toString().substring(0, 50));
         
 
         // tripId → stop_sequence
         Map<String, Integer> seqA = stopAIds.stream()
                 .filter(stopTimesByStopId::containsKey)
                 .flatMap(id -> stopTimesByStopId.get(id).stream())
-                .collect(Collectors.toMap(arr -> arr[1], arr -> Integer.parseInt(arr[4]), Math::min));
-
+                .collect(Collectors.toMap(
+                    arr -> arr[1], 
+                    arr -> Integer.parseInt(arr[4]),
+                    Math::min));
+       // System.out.println("Seq A map::: "+ seqA.size());            
         Map<String, Integer> seqB = stopBIds.stream()
                 .filter(stopTimesByStopId::containsKey)
                 .flatMap(id -> stopTimesByStopId.get(id).stream())
-                .collect(Collectors.toMap(arr -> arr[1], arr -> Integer.parseInt(arr[4]), Math::min));
-
+                .collect(Collectors.toMap(
+                    arr -> arr[1], 
+                    arr -> Integer.parseInt(arr[4]), 
+                    Math::min));
+        //System.out.println("Seq B map::: "+ seqB.size());              
         // System.out.println("Trips at A: " + seqA.keySet());
         // System.out.println("Trips at B: " + seqB.keySet());
 
@@ -245,7 +251,7 @@ public List<RouteDto> getRouteIdFromTripId(String tripId) throws IOException {
                 .filter(e -> e.getValue() < seqB.get(e.getKey()))
                 .map(Map.Entry::getKey)
                 .toList();
-        System.out.println("TrackerService.getlinesBetweenTwoStops() : validTrips " + validTrips.toString());
+       // System.out.println("TrackerService.getlinesBetweenTwoStops() : validTrips " + validTrips.toString());
 
         // convert tripId → routeId → RouteDto
         return validTrips.stream()
@@ -254,7 +260,7 @@ public List<RouteDto> getRouteIdFromTripId(String tripId) throws IOException {
                     if (tripParts == null) return null;
                     String routeId = tripParts[0].trim();
                     String headsign = tripParts[3].trim();
-                    return List.of(new RouteDto(tripId, routeId, headsign)).stream();
+                    return List.of(new RouteDto(routeId, headsign)).stream();
                 })
                 .distinct()
                 .toList();
