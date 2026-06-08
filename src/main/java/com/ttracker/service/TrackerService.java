@@ -83,6 +83,7 @@ public List<TimingDto> getTimings(String stopId) throws IOException {
     // Step 1: static schedule for all sibling stops as base
     Map<String, TimingDto> mergedByTripId = new LinkedHashMap<>();
     for (String sid : allStopIds) {
+        System.out.println("all stop ids ::::"+ sid);
         for (TimingDto t : scheduledTripsService.getScheduledTimings(sid)) {
             mergedByTripId.put(t.getTripId(), t);
         }
@@ -214,10 +215,14 @@ public List<RouteDto> getRouteIdFromTripId(String tripId) throws IOException {
         Set<String> stopBIds = getSiblingStopIds(stopIdB);
 
         Map<String, List<String[]>> stopTimesByStopId = cacheService.getStopTimesByStopId();
-        System.out.println("Has times for A? " + stopTimesByStopId.containsKey(stopAIds));
-        System.out.println("Has times for B? " + stopTimesByStopId.containsKey(stopBIds));
+        boolean hasA = stopAIds.stream().anyMatch(stopTimesByStopId::containsKey);
+        boolean hasB = stopBIds.stream().anyMatch(stopTimesByStopId::containsKey);
+
+        System.out.println("Has ANY times for A siblings? " + hasA);
+        System.out.println("Has ANY times for B siblings? " + hasB);
+
         
-        System.out.println("TrackerService.getlinesBetweenTwoStops() : stopTimes " + stopTimesByStopId.toString().substring(0, 10));
+        System.out.println("TrackerService.getlinesBetweenTwoStops() : stopTimes " + stopTimesByStopId.toString().substring(0, 50));
         
 
         // tripId → stop_sequence
@@ -231,8 +236,8 @@ public List<RouteDto> getRouteIdFromTripId(String tripId) throws IOException {
                 .flatMap(id -> stopTimesByStopId.get(id).stream())
                 .collect(Collectors.toMap(arr -> arr[1], arr -> Integer.parseInt(arr[4]), Math::min));
 
-        System.out.println("Trips at A: " + seqA.keySet());
-        System.out.println("Trips at B: " + seqB.keySet());
+        // System.out.println("Trips at A: " + seqA.keySet());
+        // System.out.println("Trips at B: " + seqB.keySet());
 
         // trips that contain both stops AND A comes before B
         List<String> validTrips = seqA.entrySet().stream()
