@@ -106,6 +106,7 @@ public class ApiController {
                 results.add(new ArrivalDto(timing.getStopId(), stopName, timing.getTripId(), route.getTripHeadsign(), timing.getMinutesUntil(), route.getRouteId(), lineInfo));
             }
         }
+        System.out.println("route time api::"+ results.size());
         if (results.isEmpty()) return ResponseEntity.notFound().build();
         return ResponseEntity.ok(results);
     }

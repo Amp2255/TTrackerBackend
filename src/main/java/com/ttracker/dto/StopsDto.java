@@ -12,4 +12,5 @@ public class StopsDto {
     private String id;
     private String name;
     private String address;
+    private String stop_desc;
 }
