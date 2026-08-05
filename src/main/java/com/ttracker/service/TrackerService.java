@@ -1,9 +1,7 @@
 package com.ttracker.service;
 
 import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -13,39 +11,37 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
 
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.transit.realtime.GtfsRealtime.FeedEntity;
-import com.google.transit.realtime.GtfsRealtime.FeedMessage;
-import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeUpdate;
 import com.ttracker.dto.RouteDto;
 import com.ttracker.dto.StopsDto;
 import com.ttracker.dto.TimingDto;
+import com.ttracker.dto.TripUpdateDto;
+import com.ttracker.service.kafka.TripUpdateConsumer;
+import org.springframework.beans.factory.annotation.Value;
 
 @Service
 public class TrackerService {
 
-    private final GtfsStaticDataCacheService cacheService;
+    @Value("${gtfs.selectedFiles}")
+    private String selectedPath;
 
-    public TrackerService(GtfsStaticDataCacheService cacheService) {
+    private final GtfsStaticDataCacheService cacheService;
+    private final TripUpdateConsumer tripUpdateConsumer;
+    
+    public TrackerService(GtfsStaticDataCacheService cacheService, ResourceLoader resourceLoader, ScheduledTripsService scheduledTripsService, TripUpdateConsumer tripUpdateConsumer) {
         this.cacheService = cacheService;
+        this.resourceLoader = resourceLoader;
+        this.scheduledTripsService = scheduledTripsService;
+        this.tripUpdateConsumer = tripUpdateConsumer;
     }
 
-    
-    
-    @Autowired
-    private ResourceLoader resourceLoader;
+    private final ResourceLoader resourceLoader;
 
-    @Autowired
-    private WebClient webClient;
 
-    @Autowired
-    private ScheduledTripsService scheduledTripsService;
+    private final ScheduledTripsService scheduledTripsService;
 
     //try catch removed. exception check added. file load on app startup
     public List<StopsDto> getStopsByName(String name) {
@@ -91,35 +87,13 @@ public List<TimingDto> getTimings(String stopId) throws IOException {
     }
 
     // Step 2: overlay real-time data where available
-    try {
-        byte[] responseBytes = webClient.get()
-            .uri("https://proxy.transport.data.gouv.fr/resource/ilevia-lille-gtfs-rt")
-            .retrieve()
-            .bodyToMono(byte[].class)
-            .block();
-        if (responseBytes != null) {
-            InputStream inputStream = new ByteArrayInputStream(responseBytes);
-            FeedMessage feed = FeedMessage.parseFrom(inputStream);
-
-            for (FeedEntity entity : feed.getEntityList()) {
-                if (entity.hasTripUpdate()) {
-                    String tripId = entity.getTripUpdate().getTrip().getTripId();
-                    for (StopTimeUpdate stp : entity.getTripUpdate().getStopTimeUpdateList()) {
-                        if (allStopIds.contains(stp.getStopId())) {
-                            long eventTime = stp.hasArrival() && stp.getArrival().getTime() != 0
-                                ? stp.getArrival().getTime()
-                                : stp.getDeparture().getTime();
-                            long minutesUntil = (eventTime - (System.currentTimeMillis() / 1000)) / 60;
-                            //System.out.println("RT override — Stop: " + stp.getStopId() + " Trip: " + tripId + " in " + minutesUntil + " min");
-                            mergedByTripId.put(tripId, new TimingDto(stp.getStopId(), tripId, minutesUntil));
-                        }
-                    }
-                }
-            }
-        }
-    } catch (InvalidProtocolBufferException ex) {
-        throw new RuntimeException("Failed to parse feed message", ex);
+    for (TimingDto t : mergedByTripId.values()) {
+    TripUpdateDto rt = tripUpdateConsumer.get(t.getTripId());
+    if (rt != null) {
+        t.setMinutesUntil(rt.minutesUntil());
     }
+}
+
 
     List<TimingDto> result = new ArrayList<>(mergedByTripId.values());
     result.sort((a, b) -> Long.compare(a.getMinutesUntil(), b.getMinutesUntil()));
@@ -129,7 +103,7 @@ public List<TimingDto> getTimings(String stopId) throws IOException {
 
 // Returns the given stopId plus all stops sharing the same parent_station (same physical location)
 private Set<String> getSiblingStopIds(String stopId) {
-    // Resource resource = resourceLoader.getResource("classpath:stops.txt");
+    // Resource resource = resourceLoader.getResource("/stops.txt");
     // try (BufferedReader reader = new BufferedReader(new InputStreamReader(resource.getInputStream()))) {
     //     List<String[]> allRows = reader.lines()
     //         .skip(1)
@@ -203,7 +177,7 @@ public String getStopName(String stopId) {
 
 public List<RouteDto> getRouteIdFromTripId(String tripId) throws IOException {
             //System.out.println("getRouteIdFromTripId called with tripId: " + tripId);
-            Resource resource = resourceLoader.getResource("classpath:trips.txt");
+            Resource resource = resourceLoader.getResource("file:" + selectedPath+"/trips.txt");
             try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(resource.getInputStream()))) {
             return reader.lines()

@@ -11,12 +11,18 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import java.nio.file.Path;
 
+import org.springframework.beans.factory.annotation.Value;
 import com.ttracker.dto.ArrivalDto;
 import com.ttracker.dto.RouteDto;
 import com.ttracker.dto.StopsDto;
 import com.ttracker.dto.TimingDto;
 import com.ttracker.service.TrackerService;
+import com.ttracker.utils.GtfsFilesDownloader;
+import com.ttracker.utils.GtfsFilesExtracter;
+import com.ttracker.utils.GtfsFilesSelector;
+
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -24,9 +30,22 @@ import com.ttracker.service.TrackerService;
 public class ApiController {
 
     private final TrackerService trackerService;
+    private final GtfsFilesDownloader downloader;
+    private final GtfsFilesExtracter extractor;
+    private final GtfsFilesSelector selector;
 
-    public ApiController(TrackerService trackerService) {
+
+    @Value("${gtfs.extractedFiles}")
+    private String extractedPath;
+
+    @Value("${gtfs.selectedFiles}")
+    private String selectedPath;
+    public ApiController(TrackerService trackerService, GtfsFilesDownloader downloader,
+        GtfsFilesExtracter extractor,GtfsFilesSelector selector) {
         this.trackerService = trackerService;
+        this.downloader = downloader;
+        this.extractor =  extractor;
+        this.selector = selector;
     }
 
     @GetMapping("/")
@@ -110,4 +129,20 @@ public class ApiController {
         if (results.isEmpty()) return ResponseEntity.notFound().build();
         return ResponseEntity.ok(results);
     }
+
+    @GetMapping("/update-now")
+    public void updateNow() {
+        System.out.println("-------");
+        try{
+            Path zip = downloader.download().block();
+            Path extracted = Path.of(extractedPath);
+            Path selected = Path.of(selectedPath);
+            extractor.extract(zip, extracted);
+            selector.copyRequiredFiles(extracted, selected);
+            System.out.println("GTFS update completed");
+        }catch(Exception ex){
+            System.out.println(ex);
+        }
+    }
+
 }

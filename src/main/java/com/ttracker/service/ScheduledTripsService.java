@@ -10,7 +10,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
@@ -20,8 +21,14 @@ import com.ttracker.dto.TimingDto;
 @Service
 public class ScheduledTripsService {
 
-    @Autowired
-    private ResourceLoader resourceLoader;
+    @Value("${gtfs.selectedFiles}")
+    private String selectedPath;
+
+    private final ResourceLoader resourceLoader;
+
+    ScheduledTripsService(ResourceLoader resourceLoader) {
+        this.resourceLoader = resourceLoader;
+    }
 
     public List<TimingDto> getScheduledTimings(String stopId) {
         Set<String> serviceIds = getValidServiceIds();
@@ -31,7 +38,7 @@ public class ScheduledTripsService {
 
     private Set<String> getValidServiceIds() {
         String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        Resource resource = resourceLoader.getResource("classpath:calendar_dates.txt");
+        Resource resource = resourceLoader.getResource(selectedPath +"/calendar_dates.txt");
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(resource.getInputStream()))) {
             return reader.lines()
                 .skip(1)
@@ -47,7 +54,7 @@ public class ScheduledTripsService {
     }
 
     private Set<String> getValidTripIds(Set<String> serviceIds) {
-        Resource resource = resourceLoader.getResource("classpath:trips.txt");
+        Resource resource = resourceLoader.getResource(selectedPath+"/trips.txt");
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(resource.getInputStream()))) {
             return reader.lines()
                 .skip(1)
@@ -61,7 +68,7 @@ public class ScheduledTripsService {
     }
 
     private List<TimingDto> getTimingsForStop(String stopId, Set<String> validTripIds) {
-        Resource resource = resourceLoader.getResource("classpath:stop_times.txt");
+        Resource resource = resourceLoader.getResource(selectedPath+"/stop_times.txt");
         LocalTime now = LocalTime.now();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(resource.getInputStream()))) {
             return reader.lines()

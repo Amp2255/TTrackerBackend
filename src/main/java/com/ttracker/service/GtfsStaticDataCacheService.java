@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
@@ -23,6 +24,9 @@ public class GtfsStaticDataCacheService {
     @Autowired
     private ResourceLoader resourceLoader;
 
+    @Value("${gtfs.selectedFiles}")
+    private String selectedPath;
+
     private Map<String, String[]> stopsById;
     private Map<String, String[]> tripsById;
     private Map<String, List<String[]>> stopTimesByStopId;
@@ -31,11 +35,12 @@ public class GtfsStaticDataCacheService {
     
     @PostConstruct
     public void loadFiles() throws IOException{
-        stopsById = loadCsv("classpath:stops.txt", parts -> parts[0].trim());
-        tripsById = loadCsv("classpath:trips.txt", parts -> parts[2].trim());
+        System.out.println("Load files started *************** ");
+        stopsById = loadCsv("file:" + selectedPath+"/stops.txt", parts -> parts[0].trim());
+        tripsById = loadCsv("file:" + selectedPath+"/trips.txt", parts -> parts[2].trim());
         stopTimesByStopId = loadStopTimes();
         routeShortNames = loadRouteShortNames();
-        // calendarDateRows = loadRawRows("classpath:calendar_dates.txt");
+        // calendarDateRows = loadRawRows("/calendar_dates.txt");
         System.out.println("Load files done ");
     }
 
@@ -55,7 +60,7 @@ public class GtfsStaticDataCacheService {
     }
 
     private Map<String, List<String[]>> loadStopTimes() {
-        Resource resource = resourceLoader.getResource("classpath:stop_times.txt");
+        Resource resource = resourceLoader.getResource("file:" + selectedPath+"/stop_times.txt");
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(resource.getInputStream()))) {
             return reader.lines()
                 .skip(1)
@@ -78,7 +83,7 @@ public class GtfsStaticDataCacheService {
     }
 
     private List<String> loadRouteShortNames() {
-        Resource resource = resourceLoader.getResource("classpath:routes.txt");
+        Resource resource = resourceLoader.getResource("file:" + selectedPath+"/routes.txt");
         try(BufferedReader reader= new BufferedReader(new InputStreamReader(resource.getInputStream()))){
             return reader.lines().skip(1).collect(Collectors.toList());
         }catch (IOException ex) {
