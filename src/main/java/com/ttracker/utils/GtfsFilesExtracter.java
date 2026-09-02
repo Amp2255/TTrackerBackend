@@ -7,9 +7,9 @@ import java.nio.file.StandardCopyOption;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
-@Component
+@Service
 public class GtfsFilesExtracter {
     
     public void extract(Path downloadpath, Path targetDirectory) throws IOException{

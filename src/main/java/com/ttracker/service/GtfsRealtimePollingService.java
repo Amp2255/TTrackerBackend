@@ -1,80 +1,85 @@
-package com.ttracker.service;
+// package com.ttracker.service;
 
-import java.io.IOException;
+// import java.io.IOException;
 
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
+// import org.springframework.beans.factory.annotation.Value;
+// import org.springframework.scheduling.annotation.Scheduled;
+// import org.springframework.stereotype.Service;
+// import org.springframework.web.client.RestTemplate;
+// import org.springframework.web.reactive.function.client.WebClient;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.transit.realtime.GtfsRealtime.FeedEntity;
-import com.google.transit.realtime.GtfsRealtime.FeedMessage;
-import com.google.transit.realtime.GtfsRealtime.TripUpdate;
-import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeUpdate;
-import com.ttracker.dto.TripUpdateDto;
-import com.ttracker.service.kafka.TripUpdateProducer;
+// import com.fasterxml.jackson.databind.ObjectMapper;
+// import com.google.transit.realtime.GtfsRealtime.FeedEntity;
+// import com.google.transit.realtime.GtfsRealtime.FeedMessage;
+// import com.google.transit.realtime.GtfsRealtime.TripUpdate;
+// import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeUpdate;
+// import com.ttracker.dto.TripUpdateDto;
 
-//Scheduled job → fetch GTFS‑RT → push to Kafka → consumer updates cache → API reads cache
-//User → API → read from cache → return instantly
+// //Scheduled job → fetch GTFS‑RT → push to Kafka → consumer updates cache → API reads cache
+// //User → API → read from cache → return instantly
+// @Service
+// public class GtfsRealtimePollingService {
 
-@Service
-public class GtfsRealtimePollingService {
+//     private final ObjectMapper objectMapper = new ObjectMapper();
+//     private final WebClient webClient;
+//     private final RestTemplate restTemplate = new RestTemplate();
 
-    private final TripUpdateProducer producer;
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final WebClient webClient;
-    public GtfsRealtimePollingService(TripUpdateProducer producer, WebClient webClient) {
-        this.producer = producer;
-        this.webClient = webClient; 
-    }
-    
-    @Scheduled(fixedRate = 20000) // every 20 seconds
-    public void pollGtfsRealtime() {
-        try {
-            FeedMessage feed = fetchFromGtfsRtUrl();
+//     @Value("${gtfs.rt.url}")
+//     private String gtfsUrl;
 
-            for (FeedEntity entity : feed.getEntityList()) {
-                if (entity.hasTripUpdate()) {
-                    TripUpdate tu = entity.getTripUpdate();
-                    String tripId = tu.getTrip().getTripId();
-                    
-                    for (StopTimeUpdate stp : tu.getStopTimeUpdateList()) {
-                        long eventTime = stp.hasArrival() && stp.getArrival().getTime() != 0
-                                ? stp.getArrival().getTime()
-                                : stp.getDeparture().getTime();
+//     @Value("${kafka.service.url}")
+//     private String kafkaUrl;
 
-                        long minutesUntil = (eventTime - (System.currentTimeMillis() / 1000)) / 60;
+//     public GtfsRealtimePollingService(WebClient.Builder webClient) {
+//         this.webClient = webClient.build();
+//     }
 
-                        TripUpdateDto dto = new TripUpdateDto(
-                                stp.getStopId(),
-                                tripId,
-                                minutesUntil
-                        );
+//     @Scheduled(fixedRate = 20000) // every 20 seconds
+//     public void pollGtfsRealtime() {
+//         try {
+//             FeedMessage feed = fetchFromGtfsRtUrl();
 
-                        String json = objectMapper.writeValueAsString(dto);
-                        producer.sendTripUpdate(tripId, json);
-                    }
+//             for (FeedEntity entity : feed.getEntityList()) {
+//                 if (entity.hasTripUpdate()) {
+//                     TripUpdate tu = entity.getTripUpdate();
+//                     String tripId = tu.getTrip().getTripId();
 
-                                    }
-            }
+//                     for (StopTimeUpdate stp : tu.getStopTimeUpdateList()) {
+//                         long eventTime = stp.hasArrival() && stp.getArrival().getTime() != 0
+//                                 ? stp.getArrival().getTime()
+//                                 : stp.getDeparture().getTime();
 
-        } catch (Exception e) {
-            System.out.println("GTFS polling failed: " + e.getMessage());
-        }
-    }
+//                         long minutesUntil = (eventTime - (System.currentTimeMillis() / 1000)) / 60;
 
-    private FeedMessage fetchFromGtfsRtUrl() throws IOException {
-        
-        byte[] responseBytes = webClient.get()
-            .uri("https://proxy.transport.data.gouv.fr/resource/ilevia-lille-gtfs-rt")
-            .retrieve()
-            .bodyToMono(byte[].class)
-            .block();
-         if (responseBytes == null) {
-        throw new IOException("GTFS-RT feed returned null");}
-    
+//                         TripUpdateDto dto = new TripUpdateDto(
+//                                 stp.getStopId(),
+//                                 tripId,
+//                                 minutesUntil
+//                         );
 
-    return FeedMessage.parseFrom(responseBytes);
-    
-    }
-}
+//                         String json = objectMapper.writeValueAsString(dto);
+
+//                         // 🔥 Instead of producer.sendTripUpdate → REST call
+//                         restTemplate.postForObject(kafkaUrl, json, Void.class);
+//                     }
+//                 }
+//             }
+
+//         } catch (Exception e) {
+//             System.out.println("GTFS polling failed: " + e.getMessage());
+//         }
+//     }
+
+//     private FeedMessage fetchFromGtfsRtUrl() throws IOException {
+//         byte[] responseBytes = webClient.get()
+//             .uri(gtfsUrl)
+//             .retrieve()
+//             .bodyToMono(byte[].class)
+//             .block();
+
+//         if (responseBytes == null) {
+//             throw new IOException("GTFS-RT feed returned null");
+//         }
+//         return FeedMessage.parseFrom(responseBytes);
+//     }
+// }

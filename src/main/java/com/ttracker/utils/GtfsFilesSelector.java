@@ -1,15 +1,14 @@
 package com.ttracker.utils;
 
 import java.io.IOException;
-import java.util.List;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
-@Component
+@Service
 public class GtfsFilesSelector {
     
     private static final List<String> REQUIRED_FILES = List.of(

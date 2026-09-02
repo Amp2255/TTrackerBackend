@@ -11,7 +11,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
-
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
@@ -38,7 +37,7 @@ public class ScheduledTripsService {
 
     private Set<String> getValidServiceIds() {
         String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        Resource resource = resourceLoader.getResource(selectedPath +"/calendar_dates.txt");
+        Resource resource = resourceLoader.getResource("file:"+ selectedPath +"/calendar_dates.txt");
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(resource.getInputStream()))) {
             return reader.lines()
                 .skip(1)
@@ -54,7 +53,7 @@ public class ScheduledTripsService {
     }
 
     private Set<String> getValidTripIds(Set<String> serviceIds) {
-        Resource resource = resourceLoader.getResource(selectedPath+"/trips.txt");
+        Resource resource = resourceLoader.getResource("file:" + selectedPath+"/trips.txt");
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(resource.getInputStream()))) {
             return reader.lines()
                 .skip(1)
@@ -68,7 +67,7 @@ public class ScheduledTripsService {
     }
 
     private List<TimingDto> getTimingsForStop(String stopId, Set<String> validTripIds) {
-        Resource resource = resourceLoader.getResource(selectedPath+"/stop_times.txt");
+        Resource resource = resourceLoader.getResource("file:" + selectedPath+"/stop_times.txt");
         LocalTime now = LocalTime.now();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(resource.getInputStream()))) {
             return reader.lines()
@@ -80,11 +79,13 @@ public class ScheduledTripsService {
                 .map(parts -> {
                     String tripId = parts[0].trim();
                     String arrivalTimeStr = parts[1].trim();
+                    String departureTimeStr = parts[2].trim();
+                    String stopSequence= parts[4].trim();
                     long minutesUntil = parseMinutesUntil(arrivalTimeStr, now);
-                    return new TimingDto(stopId, tripId, minutesUntil);
+                    return new TimingDto(stopId, tripId, minutesUntil, arrivalTimeStr, departureTimeStr, stopSequence);
                 })
-                .filter(t -> t.getMinutesUntil() >= 0)
-                .sorted((a, b) -> Long.compare(a.getMinutesUntil(), b.getMinutesUntil()))
+                .filter(t -> t.minutesUntil() >= 0)
+                .sorted((a, b) -> Long.compare(a.minutesUntil(), b.minutesUntil()))
                 .collect(Collectors.toList());
         } catch (IOException ex) {
             throw new RuntimeException("Failed to read stop_times.txt", ex);

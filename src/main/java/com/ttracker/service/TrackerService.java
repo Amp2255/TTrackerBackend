@@ -11,16 +11,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import com.ttracker.dto.RouteDto;
 import com.ttracker.dto.StopsDto;
 import com.ttracker.dto.TimingDto;
 import com.ttracker.dto.TripUpdateDto;
-import com.ttracker.service.kafka.TripUpdateConsumer;
-import org.springframework.beans.factory.annotation.Value;
 
 @Service
 public class TrackerService {
@@ -28,14 +28,19 @@ public class TrackerService {
     @Value("${gtfs.selectedFiles}")
     private String selectedPath;
 
+
+    @Value("${kafka.service.url}")
+    private String kafkaServiceUrl;
+
     private final GtfsStaticDataCacheService cacheService;
-    private final TripUpdateConsumer tripUpdateConsumer;
-    
-    public TrackerService(GtfsStaticDataCacheService cacheService, ResourceLoader resourceLoader, ScheduledTripsService scheduledTripsService, TripUpdateConsumer tripUpdateConsumer) {
+    //private final TripUpdateConsumer tripUpdateConsumer;
+    private final WebClient webClient;
+    public TrackerService(GtfsStaticDataCacheService cacheService, ResourceLoader resourceLoader, ScheduledTripsService scheduledTripsService, WebClient.Builder webClientBuilder){ //TripUpdateConsumer tripUpdateConsumer) {
         this.cacheService = cacheService;
         this.resourceLoader = resourceLoader;
         this.scheduledTripsService = scheduledTripsService;
-        this.tripUpdateConsumer = tripUpdateConsumer;
+        this.webClient = webClientBuilder.baseUrl(kafkaServiceUrl).build();
+        //this.tripUpdateConsumer = tripUpdateConsumer;
     }
 
     private final ResourceLoader resourceLoader;
@@ -82,23 +87,40 @@ public List<TimingDto> getTimings(String stopId) throws IOException {
     for (String sid : allStopIds) {
         System.out.println("all stop ids ::::"+ sid);
         for (TimingDto t : scheduledTripsService.getScheduledTimings(sid)) {
-            mergedByTripId.put(t.getTripId(), t);
+            mergedByTripId.put(t.tripId(), t);
         }
     }
 
     // Step 2: overlay real-time data where available
-    for (TimingDto t : mergedByTripId.values()) {
-    TripUpdateDto rt = tripUpdateConsumer.get(t.getTripId());
-    if (rt != null) {
-        t.setMinutesUntil(rt.minutesUntil());
-    }
-}
+    // for (TimingDto t : mergedByTripId.values()) {
+    // TripUpdateDto rt = tripUpdateConsumer.get(t.tripId());
+    // if (rt != null) {
+    //     t.setMinutesUntil(rt.minutesUntil());
+    // }
+    // 🔥 Instead of tripUpdateConsumer, call Kafka microservice REST API
+   for (TimingDto t : mergedByTripId.values()) {
+            TripUpdateDto rt = webClient.get()
+                .uri("/trip/{tripId}", t.tripId())
+                .retrieve()
+                .bodyToMono(TripUpdateDto.class)
+                .block(); // block() since you're mixing reactive + sync
 
+            if (rt != null) {
+                t = new TimingDto(
+                        t.stopId(),
+                        t.tripId(),
+                        rt.minutesUntil(),
+                        t.arrivalTimeStr(),
+                        t.departureTimeStr(),
+                        t.stopSequence()
+                );
+                mergedByTripId.put(t.tripId(), t);
+            }
+        }
 
-    List<TimingDto> result = new ArrayList<>(mergedByTripId.values());
-    result.sort((a, b) -> Long.compare(a.getMinutesUntil(), b.getMinutesUntil()));
-    //System.out.println("getTimings result count for stopId " + stopId + ": " + result.size());
-    return result;
+        List<TimingDto> result = new ArrayList<>(mergedByTripId.values());
+        result.sort((a, b) -> Long.compare(a.minutesUntil(), b.minutesUntil()));
+        return result;
 }
 
 // Returns the given stopId plus all stops sharing the same parent_station (same physical location)

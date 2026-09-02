@@ -44,20 +44,20 @@ public class HomeController {
     List<ArrivalDto> arrivals = new ArrayList<>();
 
     for (TimingDto timing : timingDtosList) {
-        String name = trackerService.getStopName(timing.getStopId());
-        List<RouteDto> routeDtoList = trackerService.getRouteIdFromTripId(timing.getTripId());
+        String name = trackerService.getStopName(timing.stopId());
+        List<RouteDto> routeDtoList = trackerService.getRouteIdFromTripId(timing.tripId());
 
         for (RouteDto route : routeDtoList) {
-            Map<String, String> lineMap = trackerService.getLineFromRoute(route.getRouteId());
+            Map<String, String> lineMap = trackerService.getLineFromRoute(route.routeId());
             Map<String, String> lineInfo = lineMap.isEmpty() ? Map.of() : lineMap;
 
             arrivals.add(new ArrivalDto(
-                    timing.getStopId(),
+                    timing.stopId(),
                     name,
-                    timing.getTripId(),
-                    route.getTripHeadsign(),
-                    timing.getMinutesUntil(),
-                    route.getRouteId(),
+                    timing.tripId(),
+                    route.tripHeadsign(),
+                    timing.minutesUntil(),
+                    route.routeId(),
                     lineInfo
             ));
         }
@@ -87,13 +87,13 @@ public class HomeController {
         if (timingDtosList.isEmpty()) return ResponseEntity.notFound().build();
         List<ArrivalDto> results = new ArrayList<>();
         for (TimingDto timing : timingDtosList) {
-            String stopName = trackerService.getStopName(timing.getStopId());
-            List<RouteDto> routeDtoList = trackerService.getRouteIdFromTripId(timing.getTripId());
+            String stopName = trackerService.getStopName(timing.stopId());
+            List<RouteDto> routeDtoList = trackerService.getRouteIdFromTripId(timing.tripId());
 
             for (RouteDto route : routeDtoList) {
-                Map<String, String> lineMap = trackerService.getLineFromRoute(route.getRouteId());
+                Map<String, String> lineMap = trackerService.getLineFromRoute(route.routeId());
                 Map<String, String> lineInfo = lineMap.isEmpty() ? Map.of() : lineMap;
-                results.add(new ArrivalDto(timing.getStopId(), stopName, timing.getTripId(), route.getTripHeadsign(), timing.getMinutesUntil(), route.getRouteId(), lineInfo));
+                results.add(new ArrivalDto(timing.stopId(), stopName, timing.tripId(), route.tripHeadsign(), timing.minutesUntil(), route.routeId(), lineInfo));
             }
         }
         if (results.isEmpty()) return ResponseEntity.notFound().build();
@@ -110,14 +110,14 @@ public class HomeController {
 
         List<ArrivalDto> results = new ArrayList<>();
         for (RouteDto route : routeDtosList) {
-            Map<String, String> lineInfo = trackerService.getLineFromRoute(route.getRouteId());
+            Map<String, String> lineInfo = trackerService.getLineFromRoute(route.routeId());
             results.add(new ArrivalDto(
                     null,
                     null,
                     null,
-                    route.getTripHeadsign(),
+                    route.tripHeadsign(),
                     null,
-                    route.getRouteId(),
+                    route.routeId(),
                     lineInfo
             ));
         }
@@ -141,15 +141,15 @@ public class HomeController {
         List<TimingDto> timingDtosList = trackerService.getTimings(stopId);
         List<ArrivalDto> results = new ArrayList<>();
         for (TimingDto timing : timingDtosList) {
-            String stopName = trackerService.getStopName(timing.getStopId());
-            List<RouteDto> routeDtoList = trackerService.getRouteIdFromTripId(timing.getTripId());
+            String stopName = trackerService.getStopName(timing.stopId());
+            List<RouteDto> routeDtoList = trackerService.getRouteIdFromTripId(timing.tripId());
 
             for (RouteDto route : routeDtoList) {
-                if(!route.getRouteId().equals(routeId))
+                if(!route.routeId().equals(routeId))
                     continue;
-                Map<String, String> lineMap = trackerService.getLineFromRoute(route.getRouteId());
+                Map<String, String> lineMap = trackerService.getLineFromRoute(route.routeId());
                 Map<String, String> lineInfo = lineMap.isEmpty() ? Map.of() : lineMap;
-                results.add(new ArrivalDto(timing.getStopId(), stopName, timing.getTripId(), route.getTripHeadsign(), timing.getMinutesUntil(), route.getRouteId(), lineInfo));
+                results.add(new ArrivalDto(timing.stopId(), stopName, timing.tripId(), route.tripHeadsign(), timing.minutesUntil(), route.routeId(), lineInfo));
             }
         }
         model.addAttribute("timings", results);

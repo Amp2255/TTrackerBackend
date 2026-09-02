@@ -8,12 +8,12 @@ import java.nio.file.StandardOpenOption;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import reactor.core.publisher.Mono;
 
-@Component
+@Service
 public class GtfsFilesDownloader {
 
     public GtfsFilesDownloader(org.springframework.web.reactive.function.client.WebClient webClient) {
